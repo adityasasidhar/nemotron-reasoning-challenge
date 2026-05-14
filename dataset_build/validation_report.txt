@@ -1,0 +1,22 @@
+═══════════════════════════════════════
+        DATASET VALIDATION REPORT      
+═══════════════════════════════════════
+Total input rows   : 8189
+Clean rows         : 7047
+Rejected rows      : 1142
+Pass rate          : 86.1%
+
+── Rejection reasons ──
+   1142  answer_mismatch
+
+── Clean rows by type ──
+   1752  ( 24.9%)  bit_manipulation
+   1656  ( 23.5%)  cipher
+   1070  ( 15.2%)  unit_conversion
+   1055  ( 15.0%)  gravity
+    730  ( 10.4%)  numeral
+    658  (  9.3%)  equation_numeric_deduce
+    126  (  1.8%)  equation_numeric_guess
+
+Output → sft_dataset_clean.jsonl
+Rejected → sft_dataset_rejected.jsonl
