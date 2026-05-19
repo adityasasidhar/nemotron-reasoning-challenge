@@ -4,3 +4,4 @@
 .python-version
 */submission.zip
 /*.safetensors
+train_1/adapter_model.safetensors
