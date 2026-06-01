@@ -16,10 +16,10 @@ import json
 import random
 from pathlib import Path
 
-CLEAN_JSONL   = "sft_dataset_clean.jsonl"
+CLEAN_JSONL = "sft_dataset_clean.jsonl"
 HF_OUTPUT_DIR = "sft_hf_dataset"
-SAMPLE_FILE   = "sft_sample.txt"
-SEED          = 42
+SAMPLE_FILE = "sft_sample.txt"
+SEED = 42
 
 BOXED_INSTRUCTION = (
     "\nPlease reason step by step. "
@@ -28,6 +28,7 @@ BOXED_INSTRUCTION = (
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def format_example(record: dict) -> dict:
     """
@@ -40,8 +41,8 @@ def format_example(record: dict) -> dict:
     User turn  : prompt + boxed instruction
     Assistant  : full COT with <think>...</think>\\boxed{answer}
     """
-    user_content      = record["prompt"] + BOXED_INSTRUCTION
-    assistant_content = record["cot"]    # already <think>...</think>\boxed{}
+    user_content = record["prompt"] + BOXED_INSTRUCTION
+    assistant_content = record["cot"]  # already <think>...</think>\boxed{}
 
     # Raw text format — SFTTrainer will tokenize this
     text = (
@@ -50,9 +51,9 @@ def format_example(record: dict) -> dict:
     )
 
     return {
-        "id":    record["id"],
-        "type":  record["type"],
-        "text":  text,
+        "id": record["id"],
+        "type": record["type"],
+        "text": text,
         "answer": record["answer"],
     }
 
@@ -76,19 +77,22 @@ def main():
     formatted = [format_example(r) for r in records]
 
     # ── Train / val split (95/5) ──────────────────────────────────────────
-    split_idx  = int(len(formatted) * 0.95)
+    split_idx = int(len(formatted) * 0.95)
     train_data = formatted[:split_idx]
-    val_data   = formatted[split_idx:]
+    val_data = formatted[split_idx:]
     print(f"Train : {len(train_data)}")
     print(f"Val   : {len(val_data)}")
 
     # ── Save as HuggingFace dataset ───────────────────────────────────────
     try:
         from datasets import Dataset, DatasetDict
-        ds = DatasetDict({
-            "train": Dataset.from_list(train_data),
-            "validation": Dataset.from_list(val_data),
-        })
+
+        ds = DatasetDict(
+            {
+                "train": Dataset.from_list(train_data),
+                "validation": Dataset.from_list(val_data),
+            }
+        )
         ds.save_to_disk(HF_OUTPUT_DIR)
         print(f"\nHuggingFace dataset saved → {HF_OUTPUT_DIR}/")
         print("  Upload this folder to Kaggle as a dataset source.")
@@ -109,13 +113,15 @@ def main():
     samples = rng.sample(formatted, min(3, len(formatted)))
     with open(SAMPLE_FILE, "w", encoding="utf-8") as f:
         for i, s in enumerate(samples):
-            f.write(f"{'='*60}\n")
-            f.write(f"SAMPLE {i+1}  |  type={s['type']}  |  answer={s['answer']}\n")
-            f.write(f"{'='*60}\n")
+            f.write(f"{'=' * 60}\n")
+            f.write(f"SAMPLE {i + 1}  |  type={s['type']}  |  answer={s['answer']}\n")
+            f.write(f"{'=' * 60}\n")
             f.write(s["text"][:1500])
             f.write("\n... [truncated]\n\n")
     print(f"Sample saved → {SAMPLE_FILE}")
-    print("\nDone. Next step: upload sft_hf_dataset/ to Kaggle then run the training notebook.")
+    print(
+        "\nDone. Next step: upload sft_hf_dataset/ to Kaggle then run the training notebook."
+    )
 
 
 if __name__ == "__main__":

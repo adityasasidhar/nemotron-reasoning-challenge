@@ -1,4 +1,3 @@
-
 # Import statements and environment setup
 import os
 
@@ -11,72 +10,46 @@ IS_MODAL_LAUNCHER = not IS_KAGGLE and not IS_MODAL_WORKER
 # Main execution block
 if IS_KAGGLE:
     import subprocess
+
     subprocess.run(
-
-"pip install -q --no-index --find-links /kaggle/input/datasets/mayukh18/nemotron-packages/packages "
-
-"unsloth trl peft transformers datasets accelerate bitsandbytes",
-
+        "pip install -q --no-index --find-links /kaggle/input/datasets/mayukh18/nemotron-packages/packages "
+        "unsloth trl peft transformers datasets accelerate bitsandbytes",
         shell=True,
-
         check=True,
-
     )
 
     subprocess.run(
-
-"pip install -q /kaggle/input/datasets/mayukh18/nemotron-packages/causal_conv1d-1.6.1+cu12torch2.10cxx11abiTRUE-cp312-cp312-linux_x86_64.whl",
-
+        "pip install -q /kaggle/input/datasets/mayukh18/nemotron-packages/causal_conv1d-1.6.1+cu12torch2.10cxx11abiTRUE-cp312-cp312-linux_x86_64.whl",
         shell=True,
-
         check=True,
-
     )
 
     subprocess.run(
-
-"pip install -q /kaggle/input/datasets/mayukh18/nemotron-packages/mamba_ssm-2.3.1+cu12torch2.10cxx11abiTRUE-cp312-cp312-linux_x86_64.whl",
-
+        "pip install -q /kaggle/input/datasets/mayukh18/nemotron-packages/mamba_ssm-2.3.1+cu12torch2.10cxx11abiTRUE-cp312-cp312-linux_x86_64.whl",
         shell=True,
-
         check=True,
-
     )
 
     for _wd in ["/kaggle/input/datasets/llkh0a/rtx-wheels/wheels"]:
-
         if os.path.isdir(_wd):
             subprocess.run(
-
-            [
-
-"pip",
-
-"install",
-
-"-q",
-
-"--no-index",
-
-"--find-links",
-
+                [
+                    "pip",
+                    "install",
+                    "-q",
+                    "--no-index",
+                    "--find-links",
                     _wd,
-
-"protobuf==6.33.5",
-
-"sentencepiece",
-
-"safetensors",
-
-"huggingface_hub",
-
+                    "protobuf==6.33.5",
+                    "sentencepiece",
+                    "safetensors",
+                    "huggingface_hub",
                 ],
-
                 check=False,
-
             )
 
     subprocess.run("rm -rf /kaggle/tmp/*", shell=True, check=True)
+
 
 # Main training function
 def run_training() -> None:
@@ -98,7 +71,7 @@ def run_training() -> None:
 
     # ── Env-specific paths + adapter source ──────────────────────────
 
-# Main execution block
+    # Main execution block
     if IS_KAGGLE:
         import kagglehub
 
@@ -140,7 +113,7 @@ def run_training() -> None:
         )
     from causal_conv1d import causal_conv1d_fn
 
-    _x = torch.randn(1, 512, 32, device="cuda", dtype=torch.bfloat16)+4e-3
+    _x = torch.randn(1, 512, 32, device="cuda", dtype=torch.bfloat16) + 4e-3
     _w = torch.randn(512, 4, device="cuda", dtype=torch.bfloat16)
     causal_conv1d_fn(_x, _w, None, activation="silu")
     print("causal_conv1d CUDA kernel: OK")
@@ -669,7 +642,7 @@ def run_training() -> None:
 
     # ── Package & ship (divergent) ───────────────────────────────────
 
-# Main execution block
+    # Main execution block
     if IS_KAGGLE:
         import zipfile
 
@@ -714,6 +687,7 @@ def run_training() -> None:
         )
         print("Kaggle upload complete.")
     print("Training complete.")
+
 
 if IS_KAGGLE:
     run_training()

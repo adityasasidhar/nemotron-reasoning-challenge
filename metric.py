@@ -5,15 +5,15 @@ import sys
 
 # Set up environment
 commands = [
-    'uv pip uninstall torch torchvision torchaudio',
-    'tar -cf - -C /kaggle/usr/lib/notebooks/metric/nvidia_metric_utility_script . | tar -xf - -C /tmp',
-    'chmod +x /tmp/triton/backends/nvidia/bin/ptxas',
-    'chmod +x /tmp/triton/backends/nvidia/bin/ptxas-blackwell',
+    "uv pip uninstall torch torchvision torchaudio",
+    "tar -cf - -C /kaggle/usr/lib/notebooks/metric/nvidia_metric_utility_script . | tar -xf - -C /tmp",
+    "chmod +x /tmp/triton/backends/nvidia/bin/ptxas",
+    "chmod +x /tmp/triton/backends/nvidia/bin/ptxas-blackwell",
 ]
 for cmd in commands:
-    print(f'Running: {cmd}')
+    print(f"Running: {cmd}")
     subprocess.run(cmd, shell=True, check=True)
-sys.path.insert(0, '/tmp')
+sys.path.insert(0, "/tmp")
 
 import glob
 import math
@@ -29,9 +29,9 @@ from tqdm import tqdm
 
 # Configuration
 MODEL_PATH = kagglehub.model_download(
-    'metric/nemotron-3-nano-30b-a3b-bf16/transformers/default'
+    "metric/nemotron-3-nano-30b-a3b-bf16/transformers/default"
 )
-DATA_PATH = Path(kagglehub.dataset_download('metric/nvidia-nemotron-rerun-data-129716'))
+DATA_PATH = Path(kagglehub.dataset_download("metric/nvidia-nemotron-rerun-data-129716"))
 
 
 class ParticipantVisibleError(Exception):
@@ -40,7 +40,7 @@ class ParticipantVisibleError(Exception):
 
 def cache_model(
     path: str | Path,
-    exts: tuple[str, ...] = ('.bin', '.pt', '.safetensors'),
+    exts: tuple[str, ...] = (".bin", ".pt", ".safetensors"),
     num_workers: int | None = None,
     chunk_mb: int = 256,
 ) -> int:
@@ -62,27 +62,27 @@ def cache_model(
         chunk_size = chunk_mb * 1024 * 1024
         total = 0
         try:
-            with open(fpath, 'rb') as f:
+            with open(fpath, "rb") as f:
                 while True:
                     data = f.read(chunk_size)
                     if not data:
                         break
                     total += len(data)
         except Exception as e:
-            print(f'Error reading {fpath}: {e}')
+            print(f"Error reading {fpath}: {e}")
         return fpath, total
 
     path = Path(path)
     # Collect files to read
     files: list[Path] = []
     if path.is_dir():
-        files = [p for p in path.rglob('*') if p.is_file() and str(p).endswith(exts)]
+        files = [p for p in path.rglob("*") if p.is_file() and str(p).endswith(exts)]
         files.sort()
     else:
         files = [path] if path.exists() else []
 
     if not files:
-        print(f'No model files found to cache at: {path}')
+        print(f"No model files found to cache at: {path}")
         return 0
 
     # Decide number of worker threads
@@ -92,7 +92,7 @@ def cache_model(
         except Exception:
             num_workers = 4
 
-    print(f'[cache_model] {len(files)} file(s), {num_workers} worker(s)')
+    print(f"[cache_model] {len(files)} file(s), {num_workers} worker(s)")
     t0 = time.time()
     total_bytes = 0
     # Read files in parallel
@@ -101,13 +101,13 @@ def cache_model(
         for i, fut in enumerate(as_completed(futures), 1):
             fpath, n = fut.result()
             total_bytes += n
-            print(f'[{i}/{len(files)}] cached {fpath.name}')
+            print(f"[{i}/{len(files)}] cached {fpath.name}")
 
     elapsed = time.time() - t0
     gb = total_bytes / 1024**3
     speed = gb / elapsed if elapsed > 0 else 0
-    print(f'[cache_model] total read ≈ {gb:.2f} GB')
-    print(f'[cache_model] elapsed {elapsed:.2f} s, ~{speed:.2f} GB/s')
+    print(f"[cache_model] total read ≈ {gb:.2f} GB")
+    print(f"[cache_model] elapsed {elapsed:.2f} s, ~{speed:.2f} GB/s")
     return total_bytes
 
 
@@ -128,20 +128,20 @@ def extract_final_answer(text: str | None) -> str:
         'NOT_FOUND'
     """
     if text is None:
-        return 'NOT_FOUND'
+        return "NOT_FOUND"
 
     # Search for boxed answer. For each \boxed{ occurrence, take everything up
     # to the last } before the next \boxed{ (or end of text). This handles
     # answers that themselves contain '}' (the model writes them literally,
     # producing e.g. \boxed{}52} for the answer "}52") as well as nested LaTeX
     # like \boxed{\frac{1}{2}}.
-    boxed_starts = list(re.finditer(r'\\boxed\{', text))
+    boxed_starts = list(re.finditer(r"\\boxed\{", text))
     matches = []
     for i, m in enumerate(boxed_starts):
         start = m.end()
         end = boxed_starts[i + 1].start() if i + 1 < len(boxed_starts) else len(text)
         segment = text[start:end]
-        last_brace = segment.rfind('}')
+        last_brace = segment.rfind("}")
         matches.append(segment[:last_brace] if last_brace != -1 else segment)
     if matches:
         non_empty = [m.strip() for m in matches if m.strip()]
@@ -151,10 +151,10 @@ def extract_final_answer(text: str | None) -> str:
 
     # Other common formats if \boxed{} is not found
     patterns = [
-        r'The final answer is:\s*([^\n]+)',
-        r'Final answer is:\s*([^\n]+)',
-        r'Final answer\s*[:：]\s*([^\n]+)',
-        r'final answer\s*[:：]\s*([^\n]+)',
+        r"The final answer is:\s*([^\n]+)",
+        r"Final answer is:\s*([^\n]+)",
+        r"Final answer\s*[:：]\s*([^\n]+)",
+        r"final answer\s*[:：]\s*([^\n]+)",
     ]
     for pattern in patterns:
         matches = re.findall(pattern, text, re.IGNORECASE)
@@ -162,13 +162,13 @@ def extract_final_answer(text: str | None) -> str:
             return matches[-1].strip()
 
     # If no structured format is found, extract the last valid number in the text
-    matches = re.findall(r'-?\d+(?:\.\d+)?', text)
+    matches = re.findall(r"-?\d+(?:\.\d+)?", text)
     if matches:
         return matches[-1]
 
     # If no numeric answer is found, return the last line of text as a fallback
     lines = [line.strip() for line in text.splitlines() if line.strip()]
-    return lines[-1] if lines else 'NOT_FOUND'
+    return lines[-1] if lines else "NOT_FOUND"
 
 
 def verify(stored_answer: str, predicted: str) -> bool:
@@ -194,7 +194,7 @@ def verify(stored_answer: str, predicted: str) -> bool:
     predicted = predicted.strip()
 
     # If the answer is a binary string, compare strictly as strings
-    if re.fullmatch(r'[01]+', stored_answer):
+    if re.fullmatch(r"[01]+", stored_answer):
         return predicted.lower() == stored_answer.lower()
 
     try:
@@ -212,8 +212,8 @@ def generate_standard_submission(submission_dir: str):
     """Processes an extracted submission archive to produce a standard submission file."""
     # Locate the LoRA files within the extracted directory
     possible_extraction_dirs = {
-        '/kaggle/tmp',
-        '/kaggle/working',
+        "/kaggle/tmp",
+        "/kaggle/working",
         submission_dir,
     }
     adapter_configs = []
@@ -221,21 +221,21 @@ def generate_standard_submission(submission_dir: str):
         if os.path.exists(search_dir):
             adapter_configs.extend(
                 glob.glob(
-                    os.path.join(search_dir, '**/adapter_config.json'), recursive=True
+                    os.path.join(search_dir, "**/adapter_config.json"), recursive=True
                 )
             )
     if not adapter_configs:
         raise ParticipantVisibleError(
-            'No adapter_config.json found in submission. Found:\n\n'
-            f'{submission_dir} {os.listdir(submission_dir)}\n\n'
-            f'/kaggle/tmp {os.listdir("/kaggle/tmp")}\n\n'
-            f'/kaggle/input/competition_evaluation {os.listdir("/kaggle/input/competition_evaluation")}'
+            "No adapter_config.json found in submission. Found:\n\n"
+            f"{submission_dir} {os.listdir(submission_dir)}\n\n"
+            f"/kaggle/tmp {os.listdir('/kaggle/tmp')}\n\n"
+            f"/kaggle/input/competition_evaluation {os.listdir('/kaggle/input/competition_evaluation')}"
         )
 
     lora_path = os.path.dirname(adapter_configs[0])
 
     # Load test data
-    test_df = pd.read_csv(DATA_PATH / 'test.csv', index_col=None)
+    test_df = pd.read_csv(DATA_PATH / "test.csv", index_col=None)
 
     row_id_col = str(test_df.columns.to_list()[0])
     predictions = []
@@ -243,14 +243,14 @@ def generate_standard_submission(submission_dir: str):
         predictions.append(
             {
                 row_id_col: getattr(item, row_id_col),
-                'prediction': lora_path,
+                "prediction": lora_path,
             }
         )
 
     submission_df = pd.DataFrame(predictions)
 
     # Write the standard submission file to the current working directory
-    submission_df.to_csv('submission.csv', index=False)
+    submission_df.to_csv("submission.csv", index=False)
 
 
 def generate_predictions(
@@ -274,11 +274,11 @@ def generate_predictions(
     # Cache Model
     cache_model(MODEL_PATH, num_workers=16, chunk_mb=1024)
 
-    os.environ['TRANSFORMERS_NO_TF'] = '1'
-    os.environ['TRANSFORMERS_NO_FLAX'] = '1'
-    os.environ['TRANSFORMERS_OFFLINE'] = '1'
-    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-    os.environ['TRITON_PTXAS_PATH'] = '/tmp/triton/backends/nvidia/bin/ptxas'
+    os.environ["TRANSFORMERS_NO_TF"] = "1"
+    os.environ["TRANSFORMERS_NO_FLAX"] = "1"
+    os.environ["TRANSFORMERS_OFFLINE"] = "1"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    os.environ["TRITON_PTXAS_PATH"] = "/tmp/triton/backends/nvidia/bin/ptxas"
 
     from vllm import LLM, SamplingParams
     from vllm.lora.request import LoRARequest
@@ -289,7 +289,7 @@ def generate_predictions(
         tensor_parallel_size=1,
         max_num_seqs=max_num_seqs,
         gpu_memory_utilization=gpu_memory_utilization,
-        dtype='auto',
+        dtype="auto",
         max_model_len=max_model_len,
         trust_remote_code=True,
         enable_lora=True,
@@ -309,12 +309,12 @@ def generate_predictions(
     for item in test_df.itertuples(index=False):
         user_content = (
             item.prompt
-            + '\nPlease put your final answer inside `\\boxed{}`. For example: `\\boxed{your answer}`'
+            + "\nPlease put your final answer inside `\\boxed{}`. For example: `\\boxed{your answer}`"
         )
         # Format using the tokenizer's chat template directly
         try:
             prompt = tokenizer.apply_chat_template(
-                [{'role': 'user', 'content': user_content}],
+                [{"role": "user", "content": user_content}],
                 tokenize=False,
                 add_generation_prompt=True,
                 enable_thinking=True,
@@ -328,7 +328,7 @@ def generate_predictions(
     outputs = llm.generate(
         prompts,
         sampling_params=sampling_params,
-        lora_request=LoRARequest('adapter', 1, lora_path),
+        lora_request=LoRARequest("adapter", 1, lora_path),
     )
 
     predictions = []
@@ -342,7 +342,7 @@ def generate_predictions(
         predictions.append(
             {
                 row_id_col: row_id_val,
-                'prediction': extracted_answer,
+                "prediction": extracted_answer,
             }
         )
 
@@ -350,16 +350,16 @@ def generate_predictions(
             debug_records.append(
                 {
                     row_id_col: row_id_val,
-                    'raw_output': raw_text,
-                    'extracted_prediction': extracted_answer,
+                    "raw_output": raw_text,
+                    "extracted_prediction": extracted_answer,
                 }
             )
 
     # Write debug CSV if requested
     if debug and debug_records:
         debug_df = pd.DataFrame(debug_records)
-        debug_df.to_csv('debug_predictions.csv', index=False)
-        print('Debug data saved to debug_predictions.csv')
+        debug_df.to_csv("debug_predictions.csv", index=False)
+        print("Debug data saved to debug_predictions.csv")
 
     return pd.DataFrame(predictions)
 
@@ -410,10 +410,10 @@ def score(
     Returns:
         The accuracy score (fraction of matches) as a float.
     """
-    lora_path = submission['prediction'].iloc[0]
+    lora_path = submission["prediction"].iloc[0]
 
     # Load test data and filter it to only include rows present in the solution
-    test_df = pd.read_csv(DATA_PATH / 'test.csv', index_col=None)
+    test_df = pd.read_csv(DATA_PATH / "test.csv", index_col=None)
     row_id_col = str(test_df.columns.to_list()[0])
     test_df = test_df[test_df[row_id_col].isin(solution[row_id_column_name])]
 
@@ -445,8 +445,6 @@ def score(
 
     accuracy = num_correct / len(solution)
     return float(accuracy)
-
-
 
 
 # Running: uv pip uninstall torch torchvision torchaudio
