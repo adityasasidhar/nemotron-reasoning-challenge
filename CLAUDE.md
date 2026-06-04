@@ -17,14 +17,16 @@ uv run ruff format .
 python3 step1_validate_dataset.py   # validates CSVs → sft_dataset_clean.jsonl
 python3 step2_build_sft_dataset.py  # converts to HF dataset format
 
-# Training — launched from local machine (Modal) or directly inside Kaggle
-python train_4/train.py             # Modal launcher: submits RTX PRO 6000 job
-# On Kaggle: run the notebook cells which call run_training() at the end
+# Training — run inside Kaggle (train_5 is Kaggle-only; no local/Modal launcher)
+# On Kaggle: run the notebook cells which execute train_5/train.py top-level
+# For Modal (train_4 only): python train_4/train.py  → submits RTX PRO 6000 job
 ```
 
 ## Architecture
 
-Training iterations are in `train_1/`–`train_4/`, each increasingly capable. `train_4/train.py` is the current canonical script.
+Training iterations are in `train_1/`–`train_5/`, each increasingly capable. `train_5/train.py` is the current canonical script.
+
+**Kaggle-only execution** (`train_5/train.py`): runs top-level (no IS_KAGGLE/Modal flags). Installs packages via `subprocess`, tokenizes the math replay corpus, then calls `run_training()` directly. Unlike `train_3/train_4`, there is no Modal launcher path.
 
 **Dual execution model** (`train_4/train.py`, `train_3/train.py`):  
 `IS_KAGGLE` / `IS_MODAL_WORKER` / `IS_MODAL_LAUNCHER` flags gate environment-specific paths, package installs, and Modal glue code. The same `run_training()` function executes on both platforms.
@@ -69,11 +71,15 @@ Training iterations are in `train_1/`–`train_4/`, each increasingly capable. `
 
 Deadline: **June 15, 2026**. Prize eligibility requires a public Kaggle notebook + write-up.
 
-## LoRA Config
+## LoRA / Training Config (train_5 defaults)
 
 ```python
 LORA_RANK = 32, LORA_ALPHA = 32, LORA_DROPOUT = 0.0
 TARGET_MODULES = ["q_proj","k_proj","v_proj","o_proj","up_proj","down_proj","in_proj","out_proj","lm_head"]
-MAX_SEQ_LEN = 8192, BATCH_SIZE = 32, MICRO_BATCH_SIZE = 4
-LEARNING_RATE = 3.5e-4 (linear decay to 0), AdamW betas=(0.9, 0.95), weight_decay=0.0
+MAX_SEQ_LEN = 8192, BATCH_SIZE = 32, MICRO_BATCH_SIZE = 4, NUM_STEPS = 1000
+LEARNING_RATE = 3.5e-4, LR_SCHEDULE = "original_linear" (linear decay to 0, no warmup)
+GRAD_CLIP_NORM = 1e9 (effectively off — only measuring norm), WEIGHT_DECAY = 0.0
+AdamW betas=(0.9, 0.95)
 ```
+
+train_4 used `LR_SCHEDULE="warmup_cosine"` and `GRAD_CLIP_NORM=1.0` (real clipping). train_5 reverts to the original baseline settings for A/B comparison.

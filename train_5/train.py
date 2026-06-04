@@ -1,70 +1,28 @@
-"""
-Nemotron Reasoning Challenge — SFT training (consolidated + fixes).
-
-Base recipe: huikang's public train_sft pipeline + your math-replay interleave.
-
-CHANGES vs your original notebook
-----------------------------------
-1. LR schedule: added warmup + cosine-decay-to-floor (was: linear decay, NO
-   warmup, straight to 3.5e-4 on a fresh LoRA init). Toggle LR_SCHEDULE.
-2. Gradient clipping: real clip at GRAD_CLIP_NORM=1.0 (was: max_norm=1e9, i.e.
-   clipping effectively OFF — you only measured the norm).
-3. Loss normalization: the batch loss is now a true token-weighted mean,
-   normalized ONCE over all answer tokens in the batch. Your original averaged
-   per-microbatch means, so a microbatch with 10 answer tokens pulled the
-   gradient as hard as one with 2000.
-4. Truncation: over-length examples are DROPPED, not truncated. tokens[:MAX]
-   cuts the tail — which is exactly where the \\boxed{} answer lives — so a
-   truncated trace teaches the model to reason and never conclude. The drop
-   count is logged loudly; if it's large, raise MAX_SEQ_LEN instead.
-
-Plus housekeeping: deduplicated the two run_training() definitions, fixed the
-Modal-path replay bug, and tokenize the replay set with AutoTokenizer instead
-of loading the 30B model twice.
-
-REPRODUCE THE 86 BASELINE (for A/B)
------------------------------------
-Set LR_SCHEDULE="original_linear" and GRAD_CLIP_NORM=1e9. The loss-norm fix and
-drop-not-truncate are baked in; both are strict-correctness changes and their
-effect is tiny unless examples were being truncated (the log tells you).
-
-Judge every change on LOCAL-EVAL ACCURACY, not training loss. Lower CCE loss
-often just means memorization under a tolerance-based answer metric.
-"""
-
 # ============================================================
 # Config
 # ============================================================
 LORA_RANK = 32
 LORA_ALPHA = 32
-LORA_DROPOUT = 0.0
-
+LORA_DROPOUT = 0.05
 MAX_SEQ_LEN = 8192
 NUM_STEPS = 1000
 BATCH_SIZE = 32
 MICRO_BATCH_SIZE = 4
 LEARNING_RATE = 3.5e-4
 WEIGHT_DECAY = 0.0
-
-# LR schedule: "warmup_cosine" or "original_linear"
-LR_SCHEDULE = "warmup_cosine"
+LR_SCHEDULE = "original_linear"
 WARMUP_FRAC = 0.03
-LR_FLOOR_FRAC = 0.10
-
-GRAD_CLIP_NORM = 1.0
-
+LR_FLOOR_FRAC = 0.0
+GRAD_CLIP_NORM = 1e9
 RESET_WEIGHTS = True
 IN_PROJ_ONLY = False
 MOE_TIE_WEIGHTS = True
 ORIGINAL_PROBLEMS_ONLY = False
 SHUFFLE_DATASET = False
-
 USE_MATH_REPLAY = True
 TARGET_REPLAY_ANSWER_TOKENS = 2_000_000
-
 SAVE_INTERMEDIATE_CHECKPOINTS = False
 CHECKPOINT_EVERY = 200
-
 PRINT_DIAGNOSTICS = False
 
 TARGET_MODULES = [
