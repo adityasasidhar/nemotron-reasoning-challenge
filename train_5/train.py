@@ -3,7 +3,7 @@
 # ============================================================
 LORA_RANK = 32
 LORA_ALPHA = 32
-LORA_DROPOUT = 0.05
+LORA_DROPOUT = 0.0
 MAX_SEQ_LEN = 8192
 NUM_STEPS = 1000
 BATCH_SIZE = 32
@@ -505,7 +505,7 @@ def run_training() -> None:
         batch_weights = [e["weights"] for e in batch]
 
         n = len(batch)
-        batch_weight_total = sum(sum(w) for w in batch_weights) or 1.0
+        n_accum = math.ceil(n / MICRO_BATCH_SIZE)
         total_loss_sum = 0.0
         total_weight_sum = 0.0
 
@@ -535,13 +535,15 @@ def run_training() -> None:
             with torch.amp.autocast("cuda", dtype=torch.bfloat16):
                 model(input_ids=padded_input, attention_mask=attention_mask, labels=padded_targets, use_cache=False)
                 per_token_ce = model._cached_per_token_ce
-                loss_sum_t = (per_token_ce * padded_weights).sum()
+                weighted_loss = per_token_ce * padded_weights
                 weight_sum_t = padded_weights.sum()
+                loss_sum_t = weighted_loss.sum()
+                loss = loss_sum_t / weight_sum_t if weight_sum_t > 0 else loss_sum_t * 0.0
 
-            (loss_sum_t / batch_weight_total).backward()
+            (loss / n_accum).backward()
             total_loss_sum += loss_sum_t.item()
             total_weight_sum += weight_sum_t.item()
-            del per_token_ce, loss_sum_t
+            del loss, per_token_ce, weighted_loss
 
             peak_gb = torch.cuda.max_memory_allocated() / 1e9
             mem_gb = torch.cuda.memory_allocated() / 1e9
